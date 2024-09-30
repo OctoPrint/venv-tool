@@ -2,6 +2,12 @@
 
 A tool to help with various tasks surrounding OctoPrint venvs.
 
+## Installation
+
+```
+curl -LO https://github.com/OctoPrint/venv-tool/raw/refs/heads/main/octoprint-venv-tool && chmod +x octoprint-venv-tool
+```
+
 ## Usage
 
 ```
