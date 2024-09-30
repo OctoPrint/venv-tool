@@ -22,6 +22,10 @@ options:
 
 ### `export-plugins`
 
+Export a list of all OctoPrint plugins installed into the venv that are available on the repo.
+
+The venv does not have to be functional for this anymore.
+
 ```
 usage: octoprint-venv-tool export-plugins [-h] [--output OUTPUT] venv
 
@@ -42,6 +46,8 @@ $ ./octoprint-venv-tool export-plugins ~/oprint plugins.json
 
 ### `install-plugins`
 
+Install plugins from an export into a provided venv.
+
 ```
 usage: octoprint-venv-tool install-plugins [-h] export venv
 
@@ -60,6 +66,8 @@ $ ./octoprint-venv-tool install-plugins ~/oprint plugins.json
 ```
 
 ### `create-venv`
+
+Create an OctoPrint venv, installing an optional plugin export.
 
 ```
 usage: octoprint-venv-tool create-venv [-h] [--export EXPORT] [--python PYTHON] venv
@@ -80,6 +88,10 @@ $ ./octoprint-venv-tool create-venv ~/new-venv --python=/usr/bin/python3.12 --ex
 ```
 
 ### `recreate-venv`
+
+Recreate an OctoPrint venv, attempt to migrate all plugins.
+
+The venv does not have to be functional for this anymore.
 
 ```
 usage: octoprint-venv-tool recreate-venv [-h] [--python PYTHON] venv
