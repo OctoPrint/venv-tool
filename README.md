@@ -45,7 +45,7 @@ options:
 ```
 <!--/INSERT:help-->
 
-Also see the list of common workflows below.
+Also see the list of [common workflows](#common-workflows) below.
 
 ### `export-plugins`
 
@@ -159,8 +159,11 @@ $ ./octoprint-venv-tool recreate-venv ~/oprint --python=/usr/bin/python3.12
 If migrating to a newer Python version, make sure you already have that installed in your system. Be aware that the tool will only
 support Python versions >= 3.7.
 
-Then run `octoprint-venv-tool recreate-venv /path/to/your/venv --python /path/to/python`, substituting 
-`/path/to/your/venv` with the path to your OctoPrint venv and `/path/to/python` with the path to your python 
+Then run 
+
+    octoprint-venv-tool recreate-venv /path/to/your/venv --python /path/to/python
+
+substituting `/path/to/your/venv` with the path to your OctoPrint venv and `/path/to/python` with the path to your python 
 *executable*, e.g. `/usr/bin/python3.12`.
 
 ### Recreating a corrupted venv
@@ -174,8 +177,11 @@ Then follow the migration steps outlined above.
 
 ### Fetching an export of all of the plugins installed into the venv
 
-Run `octoprint-venv-tool export-plugins --output plugin-export.json /path/to/venv`, substituting `/path/to/venv` with the
-path to your OctoPrint venv. 
+Run 
+
+    octoprint-venv-tool export-plugins --output plugin-export.json /path/to/venv
+    
+substituting `/path/to/venv` with the path to your OctoPrint venv. 
 
 That will create a `plugin-export.json` in your current folder that can be installed through
 OctoPrint's plugin manager, or via `octoprint-venv-tool install-plugins`.
@@ -185,4 +191,8 @@ OctoPrint's plugin manager, or via `octoprint-venv-tool install-plugins`.
 You can also use `octoprint-venv-tool` to create a fresh venv with OctoPrint and optionally some plugins from a valid export
 already preinstalled.
 
-For that, figure out the Python binary you want to use, then run `octoprint-venv-tool create-venv --python /path/to/python --export plugin-export.json /path/to/venv`, substituting the paths accordingly.
+For that, figure out the Python binary you want to use, then run 
+
+    octoprint-venv-tool create-venv --python /path/to/python --export plugin-export.json /path/to/venv
+
+substituting the paths accordingly.
