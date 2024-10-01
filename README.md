@@ -17,7 +17,7 @@ It should then be callable via `./octoprint-venv-tool`.
 ```
 curl -LO https://get.octoprint.org/octoprint-venv-tool
 ```
-Then use with `python3 octoprint-venv-tool`.
+Then use with `python octoprint-venv-tool`.
 
 ## Usage
 
