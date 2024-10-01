@@ -1,0 +1,42 @@
+version: "3"
+
+tasks:
+  update-readme:
+    cmds:
+      - |
+        help_output=$(./octoprint-venv-tool)
+        export_output=$(./octoprint-venv-tool export-plugins --help)
+        install_output=$(./octoprint-venv-tool install-plugins --help)
+        create_output=$(./octoprint-venv-tool create-venv --help)
+        recreate_output=$(./octoprint-venv-tool recreate-venv --help)
+
+        awk -i inplace -v text="$help_output" '
+          BEGIN{p=1}
+          $1=="<!--INSERT:help-->"{p=0;print;next}
+          $1=="<!--/INSERT:help-->"{print "```\n" text "\n```"; p=1}
+          p
+        ' README.md
+        awk -i inplace -v text="$export_output" '
+          BEGIN{p=1}
+          $1=="<!--INSERT:export-plugins-->"{p=0;print;next}
+          $1=="<!--/INSERT:export-plugins-->"{print "```\n" text "\n```"; p=1}
+          p
+        ' README.md
+        awk -i inplace -v text="$install_output" '
+          BEGIN{p=1}
+          $1=="<!--INSERT:install-plugins-->"{p=0;print;next}
+          $1=="<!--/INSERT:install-plugins-->"{print "```\n" text "\n```"; p=1}
+          p
+        ' README.md
+        awk -i inplace -v text="$create_output" '
+          BEGIN{p=1}
+          $1=="<!--INSERT:create-venv-->"{p=0;print;next}
+          $1=="<!--/INSERT:create-venv-->"{print "```\n" text "\n```"; p=1}
+          p
+        ' README.md
+        awk -i inplace -v text="$recreate_output" '
+          BEGIN{p=1}
+          $1=="<!--INSERT:recreate-venv-->"{p=0;print;next}
+          $1=="<!--/INSERT:recreate-venv-->"{print "```\n" text "\n```"; p=1}
+          p
+        ' README.md
