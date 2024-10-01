@@ -2,7 +2,7 @@
 
 A tool to help with various tasks surrounding OctoPrint venvs.
 
-[![Demo of octoprint-venv-tool recreate-venv](https://asciinema.org/a/ddvtC0oXNNl2MIvPcqSfjVaWc.svg)](https://asciinema.org/a/ddvtC0oXNNl2MIvPcqSfjVaWc)
+[![Demo of octoprint-venv-tool recreate-venv](https://asciinema.org/a/5NpMS3PfEsGphqO2PJ4ZP0LiE.svg)](https://asciinema.org/a/5NpMS3PfEsGphqO2PJ4ZP0LiE)
 
 ## Installation
 
