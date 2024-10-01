@@ -9,30 +9,66 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 import typing
 import urllib.request
 
 MIN_PYTHON_VERSION = "3.9"
 MAX_PYTHON_VERSION = None
 DEFAULT_PACKAGES = ("pip", "wheel", "OctoPrint")
+KNOWN_UNAVAILABLE_PLUGINS = ("firmware_check", "file_check", "pi_support")
+NO_COLOR = os.environ.get("NO_COLOR") == "1"
+
 
 #--- Helpers --------------------------------------------------------
 
+BASE = '\033['
+class TextColors:
+    RED = BASE + '31m'
+    GREEN = BASE + '32m'
+    YELLOW = BASE + '33m'
+    WHITE = BASE + '37m'
+    DEFAULT = BASE + '39m'
+
+class TextStyles:
+    BRIGHT = BASE + '1m'
+    NORMAL = BASE + '22m'
+
+
+def _ansi_support() -> bool:
+    for handle in (sys.stdout, sys.stderr):
+        if (hasattr(handle, "isatty") and handle.isatty() and sys.platform != "win32") or os.environ.get("TERM") == "ANSI":
+            continue
+        return False
+    return True
+
+_ansi_supported = _ansi_support()
+
+def _print(*msg, color=TextColors.DEFAULT, style=None, end="\n", stream=sys.stdout):
+    if NO_COLOR or not _ansi_supported:
+        print(*msg, end=end, file=stream)
+        return
+
+    if not style:
+        print(color, " ".join(msg), TextColors.DEFAULT, sep="", end=end, file=stream)
+    else:
+        print(color, style, " ".join(msg), TextColors.DEFAULT, TextStyles.NORMAL, sep="", end=end, file=stream)
+
+
 def _print_cli_result(result):
-    print("---")
-    print("stdout: " + result.stdout.decode("utf-8"))
-    print("---")
-    print("stderr: " + result.stderr.decode("utf-8"))
-    print("---")
+    if result.stdout:
+        _print(f"stdout: {result.stdout}")
+    if result.stderr:
+        _print(f"stderr: {result.stderr}", color=TextColors.RED, stream=sys.stderr)
 
 
 def _cli(*args, silent: bool = False):
     if not silent:
-        print(f"Running: {' '.join(args)}")
+        _print(f"Running: {' '.join(args)}", color=TextColors.YELLOW)
 
     result = None
     try:
-        result = subprocess.run(args, capture_output=True, check=True)
+        result = subprocess.run(args, capture_output=True, check=True, encoding="utf-8")
     except Exception:
         if result:
             _print_cli_result(result)
@@ -40,17 +76,19 @@ def _cli(*args, silent: bool = False):
 
     if not silent:
         _print_cli_result(result)
-        print("... done.")
+        _print("... done.", color=TextColors.GREEN)
 
     return result
 
 
-def _pip_install(python: str, package: str, update=False) -> None:
-    print(f"Installing {package}...")
+def _pip_install(python: str, package: str, update=False, silent=False) -> None:
+    _print(f"Installing {package}...", style=TextStyles.BRIGHT if not silent else TextStyles.NORMAL)
+
     if update:
-        _cli(python, "-m", "pip", "install", "-U", package)
+        _cli(python, "-m", "pip", "install", "-U", package, silent=silent)
     else:
-        _cli(python, "-m", "pip", "install", package)
+        _cli(python, "-m", "pip", "install", package, silent=silent)
+
 
 #--- Plugin Export --------------------------------------------------
 
@@ -66,7 +104,7 @@ def ids_for_txt(path: str) -> typing.Optional[typing.List[str]]:
         if "octoprint.plugin" in parser:
             return list(parser["octoprint.plugin"].keys())
     except configparser.ParsingError as exc:
-        print(f"Parsing error while reading {path}: {exc}", file=sys.stderr)
+        _print(f"Parsing error while reading {path}: {exc}", color=TextColors.RED, file=sys.stderr)
 
 def ids_for_venv(venv: str) -> None:
     ids = set()
@@ -102,7 +140,8 @@ def create_export(venv, output = None) -> None:
     for key in ids:
         data = repo_plugins.get(key)
         if not data:
-            print(f"Plugin '{key}' is not available on the repository, skipping", file=sys.stderr)
+            if key not in KNOWN_UNAVAILABLE_PLUGINS:
+                _print(f"Plugin '{key}' is not available on the repository, skipping", color=TextColors.YELLOW, stream=sys.stderr)
             continue
         export.append({
             "key": key,
@@ -113,14 +152,15 @@ def create_export(venv, output = None) -> None:
     
     json_str = json.dumps(export)
     if not output:
-        print(json_str)
+        _print(json_str)
     else:
         with open(output, "w", encoding="utf-8") as f:
             f.write(json_str)
 
+
 #--- Plugins install from export ------------------------------------
 
-def install_export(venv: str, export: str) -> None:
+def install_export(venv: str, export: str, silent=True) -> None:
     python = None
     for option in ("bin", "scripts"):
         p = os.path.join(venv, option, "python")
@@ -138,9 +178,10 @@ def install_export(venv: str, export: str) -> None:
 
     for plugin in plugins:
         try:
-            _pip_install(python, plugin["archive"])
+            _pip_install(python, plugin["archive"], silent=silent)
         except RuntimeError as exc:
-            print(f"Installing plugin {plugin['key']} from {plugin['archive']} failed: {exc}", file=sys.stderr)
+            _print(f"Installing plugin {plugin['key']} from {plugin['archive']} failed: {exc}", color=TextColors.RED, stream=sys.stderr)
+
 
 #--- Create venv ----------------------------------------------------
 
@@ -149,67 +190,73 @@ def _validate_python(python):
 
     result = _cli(python, "-c", "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}.{v.micro}')", silent=True)
 
-    python_version = parse_version(result.stdout.decode("utf-8").strip())
-    if (MIN_PYTHON_VERSION and python_version < parse_version(MIN_PYTHON_VERSION)) or (MAX_PYTHON_VERSION and python_version > parse_version(MAX_PYTHON_VERSION)):
+    python_version = parse_version(result.stdout.strip())
+    if (
+        (MIN_PYTHON_VERSION and python_version < parse_version(MIN_PYTHON_VERSION)) or 
+        (MAX_PYTHON_VERSION and python_version > parse_version(MAX_PYTHON_VERSION))
+    ):
         raise RuntimeError(f"Python at {python} has version {str(python_version)} which is unsupported")
 
-    print(f"Python at {python} has version {str(python_version)}")
+    _print(f"Python at {python} has version {str(python_version)}")
     return python_version
 
 
-def create_venv(venv, python=None, export=None):
+def create_venv(venv, python=None, export=None, silent=True):
     if python is None:
         python = sys.executable
     
     _validate_python(python)
 
-    print(f"Creating venv from {python}...")
-    _cli(python, "-m", "venv", venv)
+    _print(f"Creating venv from {python}...", style=TextStyles.BRIGHT if not silent else TextStyles.NORMAL)
+    _cli(python, "-m", "venv", venv, silent=True)
 
     if DEFAULT_PACKAGES:
-        venv_python = None
-        for option in ("bin", "scripts"):
-            p = os.path.join(venv, option, "python")
-            if os.path.exists(p):
-                venv_python = p
+        venv_python = os.path.join(venv, "scripts", "python.exe") if sys.platform == "win32" else os.path.join(venv, "bin", "python")
+        if not os.path.exists(venv_python):
+            raise RuntimeError(f"Can't located python executable in venv {venv}")
 
         for package in DEFAULT_PACKAGES:
-            _pip_install(venv_python, package, update=True)
+            _pip_install(venv_python, package, update=True, silent=silent)
 
     if export:
         install_export(venv, export)
+
 
 #--- Recreate venv --------------------------------------------------
 
 def backup_venv(venv, backup=None):
     if backup is None:
         backup = f"{venv}.bck"
-    os.rename(venv, backup)
+    shutil.move(venv, backup)
 
-def recreate_venv(venv, python=None, backup=None):
+def recreate_venv(venv, python=None, backup=None, silent=True):
     if backup is None:
         backup = f"{venv}.bck"
 
-    with tempfile.NamedTemporaryFile(delete=False) as f:
+    with tempfile.NamedTemporaryFile(prefix="plugin-export-", suffix=".json", delete=False) as f:
         try:
             f.close()
 
-            print(f"Creating plugin export at {f.name}...")
+            style = TextStyles.BRIGHT if not silent else TextStyles.NORMAL
+
+            _print(f"Creating plugin export at {f.name}...", style=style)
             create_export(venv, output=f.name)
+            print("")
 
-            print(f"Backing up existing venv to {backup}...")
+            _print(f"Backing up existing venv to {backup}...", style=style)
             backup_venv(venv, backup=backup)
-            input("hit key to continue...")
+            print("")
 
-            print(f"Creating new venv at {venv} using python at {python}")
-            create_venv(venv, python=python)
+            _print(f"Creating new venv at {venv} using python at {python}", style=style)
+            create_venv(venv, python=python, silent=silent)
+            print("")
 
-            print(f"Installing plugin export {f.name} into recreated venv {venv}...")
-            install_export(venv, export=f.name)
+            _print(f"Installing plugin export {f.name} into recreated venv {venv}...", style=style)
+            install_export(venv, export=f.name, silent=silent)
+            print("")
         except Exception:
-            input("error, hit enter to continue")
             if os.path.exists(backup):
-                print("Restoring backed up venv...")
+                _print("Restoring backed up venv...", color=TextColors.RED, style=style, stream=sys.stderr)
                 if os.path.exists(venv):
                     shutil.rmtree(venv)
                 os.rename(backup, venv)
@@ -217,31 +264,39 @@ def recreate_venv(venv, python=None, backup=None):
         finally:
             if os.path.exists(f.name):
                 os.remove(f.name)
+        
+        _print(f"Recreation of {venv} successful, removing backup...", style=style)
+        shutil.rmtree(backup)
+        _print("... done!")
+
+        print()
+        _print(f"{venv} has been recreated with {python}!", color=TextColors.GREEN, style=style)
 
 #--- Main -----------------------------------------------------------
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Various tools for OctoPrint's venvs")
+    parser.add_argument("--verbose", action="store_true", help="verbose output")
     subparsers = parser.add_subparsers(dest="subcommand")
 
     # parser for export-plugins command
-    export_parser = subparsers.add_parser("export-plugins", help="Export a list of all OctoPrint plugins installed into the venv that are available on the repo.")
+    export_parser = subparsers.add_parser("export-plugins", help="export a list of all OctoPrint plugins installed into the venv that are available on the repo.")
     export_parser.add_argument("venv", type=str, help="path of the venv")
     export_parser.add_argument("--output", "-o", type=str, help="optional path for the export, if unset stdout will be used", default=None)
 
     # parser for install-plugins command
-    install_parser = subparsers.add_parser("install-plugins", help="Install plugins from an export into a provided venv.")
+    install_parser = subparsers.add_parser("install-plugins", help="install plugins from an export into a provided venv.")
     install_parser.add_argument("export", type=str, help="path of the export")
     install_parser.add_argument("venv", type=str, help="path of the venv")
 
     # parser for create-venv command
-    create_parser = subparsers.add_parser("create-venv", help="Create an OctoPrint venv, installing an optional plugin export")
+    create_parser = subparsers.add_parser("create-venv", help="create an OctoPrint venv, installing an optional plugin export")
     create_parser.add_argument("--export", type=str, help="path of the export, optional", default=None)
     create_parser.add_argument("--python", type=str, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
     create_parser.add_argument("venv", type=str, help="path of the venv")
 
     # parser for recreate-venv command
-    recreate_parser = subparsers.add_parser("recreate-venv", help="Recreate an OctoPrint venv, attempt to migrate all plugins")
+    recreate_parser = subparsers.add_parser("recreate-venv", help="recreate an OctoPrint venv, attempting to migrate all plugins installed therein")
     recreate_parser.add_argument("--python", type=str, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
     recreate_parser.add_argument("venv", type=str, help="path of the venv")
 
@@ -260,11 +315,16 @@ if __name__ == "__main__":
         if subcommand == "export-plugins":
             create_export(args.venv, args.output)
         elif subcommand == "install-plugins":
-            install_export(args.venv, args.export)
+            install_export(args.venv, args.export, silent=not args.verbose)
         elif subcommand == "create-venv":
-            create_venv(args.venv, python=args.python, export=args.export)
+            create_venv(args.venv, python=args.python, export=args.export, silent=not args.verbose)
         elif subcommand == "recreate-venv":
-            recreate_venv(args.venv, python=args.python)
+            recreate_venv(args.venv, python=args.python, silent=not args.verbose)
+        else:
+            parser.print_help()
+            parser.exit()
     except Exception as exc:
-        print(f"Error running {subcommand}: {exc}", file=sys.stderr)
+        _print(f"Error running {subcommand}: {exc}", color=TextColors.RED, style=TextStyles.BRIGHT, stream=sys.stderr)
+        if args.verbose:
+            _print(traceback.format_exc(), color=TextColors.RED, stream=sys.stderr)
         sys.exit(-2)
