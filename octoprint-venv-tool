@@ -13,7 +13,7 @@ import traceback
 import typing
 import urllib.request
 
-MIN_PYTHON_VERSION = "3.7"
+MIN_PYTHON_VERSION = (3, 7, 0)
 MAX_PYTHON_VERSION = None
 DEFAULT_PACKAGES = ("pip", "wheel", "OctoPrint")
 KNOWN_UNAVAILABLE_PLUGINS = ("firmware_check", "file_check", "pi_support")
@@ -186,14 +186,12 @@ def install_export(venv: str, export: str, silent=True) -> None:
 #--- Create venv ----------------------------------------------------
 
 def _validate_python(python):
-    from packaging.version import parse as parse_version
-
     result = _cli(python, "-c", "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}.{v.micro}')", silent=True)
 
-    python_version = parse_version(result.stdout.strip())
+    python_version = tuple(map(int, result.stdout.strip().split(".")))
     if (
-        (MIN_PYTHON_VERSION and python_version < parse_version(MIN_PYTHON_VERSION)) or 
-        (MAX_PYTHON_VERSION and python_version > parse_version(MAX_PYTHON_VERSION))
+        (MIN_PYTHON_VERSION and python_version < MIN_PYTHON_VERSION) or 
+        (MAX_PYTHON_VERSION and python_version > MAX_PYTHON_VERSION)
     ):
         raise RuntimeError(f"Python at {python} has version {str(python_version)} which is unsupported")
 
