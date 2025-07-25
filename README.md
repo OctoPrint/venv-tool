@@ -73,7 +73,7 @@ options:
 #### Example
 
 ```
-$ ./octoprint-venv-tool export-plugins ~/oprint plugins.json
+$ ./octoprint-venv-tool export-plugins --output plugins.json ~/oprint
 ```
 
 ### `install-plugins`
@@ -96,7 +96,7 @@ options:
 #### Example
 
 ```
-$ ./octoprint-venv-tool install-plugins ~/oprint plugins.json
+$ ./octoprint-venv-tool install-plugins plugins.json ~/oprint
 ```
 
 ### `create-venv`
