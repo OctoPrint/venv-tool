@@ -57,9 +57,16 @@ def _print(*msg, color=TextColors.DEFAULT, style=None, end="\n", stream=sys.stdo
 
 def _print_cli_result(result):
     if result.stdout:
-        _print(f"stdout: {result.stdout}")
+        _print(f"stdout:\n{result.stdout}")
     if result.stderr:
-        _print(f"stderr: {result.stderr}", color=TextColors.RED, stream=sys.stderr)
+        _print(f"stderr:\n{result.stderr}", color=TextColors.RED, stream=sys.stderr)
+
+
+def _print_called_process_error(error):
+    if error.stdout:
+        _print(f"stdout:\n{error.stdout}")
+    if error.stderr:
+        _print(f"stderr:\n{error.stderr}", color=TextColors.RED, stream=sys.stderr)
 
 
 def _cli(*args, silent: bool = False):
@@ -69,9 +76,11 @@ def _cli(*args, silent: bool = False):
     result = None
     try:
         result = subprocess.run(args, capture_output=True, check=True, encoding="utf-8")
-    except Exception:
+    except Exception as exc:
         if result:
             _print_cli_result(result)
+        elif isinstance(exc, subprocess.CalledProcessError):
+            _print_called_process_error(exc)
         raise
 
     if not silent:
@@ -160,7 +169,7 @@ def create_export(venv, output = None) -> None:
 
 #--- Plugins install from export ------------------------------------
 
-def install_export(venv: str, export: str, silent=True) -> None:
+def install_export(venv: str, export: str, ignore_plugin_errors=False, silent=True) -> None:
     python = None
     for option in ("bin", "scripts"):
         p = os.path.join(venv, option, "python")
@@ -179,8 +188,10 @@ def install_export(venv: str, export: str, silent=True) -> None:
     for plugin in plugins:
         try:
             _pip_install(python, plugin["archive"], silent=silent)
-        except RuntimeError as exc:
+        except Exception as exc:
             _print(f"Installing plugin {plugin['key']} from {plugin['archive']} failed: {exc}", color=TextColors.RED, stream=sys.stderr)
+            if not ignore_plugin_errors:
+                raise
 
 
 #--- Create venv ----------------------------------------------------
@@ -199,7 +210,7 @@ def _validate_python(python):
     return python_version
 
 
-def create_venv(venv, python=None, export=None, silent=True):
+def create_venv(venv, python=None, export=None, ignore_plugin_errors=False, silent=True):
     if python is None:
         python = sys.executable
     
@@ -217,7 +228,7 @@ def create_venv(venv, python=None, export=None, silent=True):
             _pip_install(venv_python, package, update=True, silent=silent)
 
     if export:
-        install_export(venv, export)
+        install_export(venv, export, ignore_plugin_errors=ignore_plugin_errors)
 
 
 #--- Recreate venv --------------------------------------------------
@@ -227,7 +238,10 @@ def backup_venv(venv, backup=None):
         backup = f"{venv}.bck"
     shutil.move(venv, backup)
 
-def recreate_venv(venv, python=None, backup=None, silent=True):
+def recreate_venv(venv, python=None, backup=None, ignore_plugin_errors=False, silent=True):
+    if python is None:
+        python = sys.executable
+
     if backup is None:
         backup = f"{venv}.bck"
 
@@ -250,14 +264,15 @@ def recreate_venv(venv, python=None, backup=None, silent=True):
             print("")
 
             _print(f"Installing plugin export {f.name} into recreated venv {venv}...", style=style)
-            install_export(venv, export=f.name, silent=silent)
+            install_export(venv, export=f.name, ignore_plugin_errors=ignore_plugin_errors, silent=silent)
             print("")
         except Exception:
             if os.path.exists(backup):
-                _print("Restoring backed up venv...", color=TextColors.RED, style=style, stream=sys.stderr)
+                _print(f"Recreation of {venv} failed, restoring previously created backup...", color=TextColors.RED, style=style, stream=sys.stderr)
                 if os.path.exists(venv):
                     shutil.rmtree(venv)
                 os.rename(backup, venv)
+                _print("... done!", color=TextColors.RED, style=style, stream=sys.stderr)
             raise
         finally:
             if os.path.exists(f.name):
@@ -284,6 +299,7 @@ def get_parser() -> argparse.ArgumentParser:
 
     # parser for install-plugins command
     install_parser = subparsers.add_parser("install-plugins", help="install plugins from an export into a provided venv.")
+    install_parser.add_argument("--ignore-plugin-errors", action="store_true", help="Continue if trying to install a plugin raises an error")
     install_parser.add_argument("export", type=str, help="path of the export")
     install_parser.add_argument("venv", type=str, help="path of the venv")
 
@@ -291,11 +307,13 @@ def get_parser() -> argparse.ArgumentParser:
     create_parser = subparsers.add_parser("create-venv", help="create an OctoPrint venv, installing an optional plugin export")
     create_parser.add_argument("--export", type=str, help="path of the export, optional", default=None)
     create_parser.add_argument("--python", type=str, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
+    create_parser.add_argument("--ignore-plugin-errors", action="store_true", help="Continue if trying to install a plugin raises an error")
     create_parser.add_argument("venv", type=str, help="path of the venv")
 
     # parser for recreate-venv command
     recreate_parser = subparsers.add_parser("recreate-venv", help="recreate an OctoPrint venv, attempting to migrate all plugins installed therein")
     recreate_parser.add_argument("--python", type=str, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
+    recreate_parser.add_argument("--ignore-plugin-errors", action="store_true", help="Continue if trying to install a plugin raises an error")
     recreate_parser.add_argument("venv", type=str, help="path of the venv")
 
     return parser
@@ -313,11 +331,11 @@ if __name__ == "__main__":
         if subcommand == "export-plugins":
             create_export(args.venv, args.output)
         elif subcommand == "install-plugins":
-            install_export(args.venv, args.export, silent=not args.verbose)
+            install_export(args.venv, args.export, ignore_plugin_errors=args.ignore_plugin_errors, silent=not args.verbose)
         elif subcommand == "create-venv":
-            create_venv(args.venv, python=args.python, export=args.export, silent=not args.verbose)
+            create_venv(args.venv, python=args.python, export=args.export, ignore_plugin_errors=args.ignore_plugin_errors, silent=not args.verbose)
         elif subcommand == "recreate-venv":
-            recreate_venv(args.venv, python=args.python, silent=not args.verbose)
+            recreate_venv(args.venv, python=args.python, ignore_plugin_errors=args.ignore_plugin_errors, silent=not args.verbose)
         else:
             parser.print_help()
             parser.exit()

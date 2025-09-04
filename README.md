@@ -26,8 +26,7 @@ Then use with `python octoprint-venv-tool`.
 <!--INSERT:help-->
 ```
 usage: octoprint-venv-tool [-h] [--verbose]
-                           {export-plugins,install-plugins,create-venv,recreate-venv}
-                           ...
+                           {export-plugins,install-plugins,create-venv,recreate-venv} ...
 
 Various tools for OctoPrint's venvs
 
@@ -60,13 +59,12 @@ The venv does not have to be functional for this anymore.
 usage: octoprint-venv-tool export-plugins [-h] [--output OUTPUT] venv
 
 positional arguments:
-  venv                  path of the venv
+  venv                 path of the venv
 
 options:
-  -h, --help            show this help message and exit
-  --output OUTPUT, -o OUTPUT
-                        optional path for the export, if unset stdout will be
-                        used
+  -h, --help           show this help message and exit
+  --output, -o OUTPUT  optional path for the export, if unset stdout will be
+                       used
 ```
 <!--/INSERT:export-plugins-->
 
@@ -82,14 +80,17 @@ Install plugins from an export into a provided venv.
 
 <!--INSERT:install-plugins-->
 ```
-usage: octoprint-venv-tool install-plugins [-h] export venv
+usage: octoprint-venv-tool install-plugins [-h] [--ignore-plugin-errors]
+                                           export venv
 
 positional arguments:
-  export      path of the export
-  venv        path of the venv
+  export                path of the export
+  venv                  path of the venv
 
 options:
-  -h, --help  show this help message and exit
+  -h, --help            show this help message and exit
+  --ignore-plugin-errors
+                        Continue if trying to install a plugin raises an error
 ```
 <!--/INSERT:install-plugins-->
 
@@ -107,17 +108,20 @@ Create an OctoPrint venv, installing an optional plugin export.
 ```
 usage: octoprint-venv-tool create-venv [-h] [--export EXPORT]
                                        [--python PYTHON]
+                                       [--ignore-plugin-errors]
                                        venv
 
 positional arguments:
-  venv             path of the venv
+  venv                  path of the venv
 
 options:
-  -h, --help       show this help message and exit
-  --export EXPORT  path of the export, optional
-  --python PYTHON  python binary to use for creating the venv, optional, if
-                   not provided the version used to run the script will be
-                   used
+  -h, --help            show this help message and exit
+  --export EXPORT       path of the export, optional
+  --python PYTHON       python binary to use for creating the venv, optional,
+                        if not provided the version used to run the script
+                        will be used
+  --ignore-plugin-errors
+                        Continue if trying to install a plugin raises an error
 ```
 <!--/INSERT:create-venv-->
 
@@ -135,16 +139,20 @@ The venv does not have to be functional for this anymore.
 
 <!--INSERT:recreate-venv-->
 ```
-usage: octoprint-venv-tool recreate-venv [-h] [--python PYTHON] venv
+usage: octoprint-venv-tool recreate-venv [-h] [--python PYTHON]
+                                         [--ignore-plugin-errors]
+                                         venv
 
 positional arguments:
-  venv             path of the venv
+  venv                  path of the venv
 
 options:
-  -h, --help       show this help message and exit
-  --python PYTHON  python binary to use for creating the venv, optional, if
-                   not provided the version used to run the script will be
-                   used
+  -h, --help            show this help message and exit
+  --python PYTHON       python binary to use for creating the venv, optional,
+                        if not provided the version used to run the script
+                        will be used
+  --ignore-plugin-errors
+                        Continue if trying to install a plugin raises an error
 ```
 <!--/INSERT:recreate-venv-->
 
@@ -167,6 +175,17 @@ Then run
 
 substituting `/path/to/your/venv` with the path to your OctoPrint venv and `/path/to/python` with the path to your python 
 *executable*, e.g. `/usr/bin/python3.12`.
+
+> [!NOTE]
+> If any of your currently installed plugins will cause an error while attempting to install them into the new virtual environment,
+> recreation will be aborted and the initial backup of your original venv rolled back.
+>
+> You can ignore errors caused by plugins and make the recreation continue without installing problematic plugins by running
+> the recreation command with the `--ignore-plugin-errors` parameters, e.g.
+>
+>     octoprint-venv-tool recreate-venv /path/to/your/venv --python /path/to/python --ignore-plugin-errors
+>
+> The same parameter is also available on the `create-venv` and `install-plugins` commands.
 
 ### Recreating a corrupted venv
 
