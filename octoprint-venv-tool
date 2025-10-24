@@ -325,6 +325,7 @@ if __name__ == "__main__":
     if params[0].endswith("python"):
         params = params[1:]
     args = parser.parse_args(params[1:])
+    args.venv = os.path.normpath(args.venv)
 
     subcommand = args.subcommand
     try:
