@@ -207,9 +207,9 @@ def _validate_python(python):
         (MIN_PYTHON_VERSION and python_version < MIN_PYTHON_VERSION) or 
         (MAX_PYTHON_VERSION and python_version >= MAX_PYTHON_VERSION)
     ):
-        raise RuntimeError(f"Python at {python} has version {str(python_version)} which is currently unsupported by OctoPrint")
+        raise RuntimeError(f"Python at {python} has version {'.'.join(str(x) for x in python_version)} which is currently unsupported by OctoPrint")
 
-    _print(f"Python at {python} has version {str(python_version)}")
+    _print(f"Python at {python} has version {'.'.join(str(x) for x in python_version)}")
     return python_version
 
 
@@ -219,7 +219,7 @@ def create_venv(venv, python=None, export=None, ignore_plugin_errors=False, sile
     
     _validate_python(python)
 
-    _print(f"Creating venv from {python}...", style=TextStyles.BRIGHT if not silent else TextStyles.NORMAL)
+    _print(f"Creating venv from {python} at {venv}...", style=TextStyles.BRIGHT if not silent else TextStyles.NORMAL)
     _cli(python, "-m", "venv", venv, silent=True)
 
     if DEFAULT_PACKAGES:
