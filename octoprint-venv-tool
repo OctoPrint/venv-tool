@@ -141,6 +141,9 @@ def fetch_repo_plugins() -> dict:
     return plugins
 
 def create_export(venv, output = None) -> None:
+    if output and os.path.isdir(output):
+        raise RuntimeError(f"Can't create export at {output}, it is a directory. Please specify the full path to the export file, e.g. {output}/export.json.")
+
     ids = ids_for_venv(venv)
 
     repo_plugins = fetch_repo_plugins()
@@ -288,33 +291,36 @@ def recreate_venv(venv, python=None, backup=None, ignore_plugin_errors=False, si
 #--- Main -----------------------------------------------------------
 
 def get_parser() -> argparse.ArgumentParser:
+    def normalized_path(val: str) -> str:
+        return os.path.normpath(val)
+
     parser = argparse.ArgumentParser(description="Various tools for OctoPrint's venvs")
     parser.add_argument("--verbose", action="store_true", help="verbose output")
     subparsers = parser.add_subparsers(dest="subcommand")
 
     # parser for export-plugins command
     export_parser = subparsers.add_parser("export-plugins", help="export a list of all OctoPrint plugins installed into the venv that are available on the repo.")
-    export_parser.add_argument("venv", type=str, help="path of the venv")
-    export_parser.add_argument("--output", "-o", type=str, help="optional path for the export, if unset stdout will be used", default=None)
+    export_parser.add_argument("venv", type=normalized_path, help="path of the venv")
+    export_parser.add_argument("--output", "-o", type=normalized_path, help="optional path for the export, if unset stdout will be used", default=None)
 
     # parser for install-plugins command
     install_parser = subparsers.add_parser("install-plugins", help="install plugins from an export into a provided venv.")
     install_parser.add_argument("--ignore-plugin-errors", action="store_true", help="Continue if trying to install a plugin raises an error")
-    install_parser.add_argument("export", type=str, help="path of the export")
-    install_parser.add_argument("venv", type=str, help="path of the venv")
+    install_parser.add_argument("export", type=normalized_path, help="path of the export")
+    install_parser.add_argument("venv", type=normalized_path, help="path of the venv")
 
     # parser for create-venv command
     create_parser = subparsers.add_parser("create-venv", help="create an OctoPrint venv, installing an optional plugin export")
-    create_parser.add_argument("--export", type=str, help="path of the export, optional", default=None)
-    create_parser.add_argument("--python", type=str, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
+    create_parser.add_argument("--export", type=normalized_path, help="path of the export, optional", default=None)
+    create_parser.add_argument("--python", type=normalized_path, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
     create_parser.add_argument("--ignore-plugin-errors", action="store_true", help="Continue if trying to install a plugin raises an error")
-    create_parser.add_argument("venv", type=str, help="path of the venv")
+    create_parser.add_argument("venv", type=normalized_path, help="path of the venv")
 
     # parser for recreate-venv command
     recreate_parser = subparsers.add_parser("recreate-venv", help="recreate an OctoPrint venv, attempting to migrate all plugins installed therein")
-    recreate_parser.add_argument("--python", type=str, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
+    recreate_parser.add_argument("--python", type=normalized_path, help="python binary to use for creating the venv, optional, if not provided the version used to run the script will be used", default=None)
     recreate_parser.add_argument("--ignore-plugin-errors", action="store_true", help="Continue if trying to install a plugin raises an error")
-    recreate_parser.add_argument("venv", type=str, help="path of the venv")
+    recreate_parser.add_argument("venv", type=normalized_path, help="path of the venv")
 
     return parser
 
