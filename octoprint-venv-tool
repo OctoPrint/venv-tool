@@ -15,7 +15,7 @@ import urllib.request
 
 MIN_PYTHON_VERSION = (3, 7, 0)
 MAX_PYTHON_VERSION = None
-DEFAULT_PACKAGES = ("pip", "wheel", "OctoPrint")
+DEFAULT_PACKAGES = ("pip<25.3", "wheel", "OctoPrint")
 KNOWN_UNAVAILABLE_PLUGINS = ("firmware_check", "file_check", "pi_support")
 NO_COLOR = os.environ.get("NO_COLOR") == "1"
 
