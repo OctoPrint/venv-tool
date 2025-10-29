@@ -14,7 +14,7 @@ import typing
 import urllib.request
 
 MIN_PYTHON_VERSION = (3, 7, 0)
-MAX_PYTHON_VERSION = None
+MAX_PYTHON_VERSION = (3, 14, 0)  # excluded upper limit; OctoPrint 1.11.x isn't yet compatible to 3.14
 DEFAULT_PACKAGES = ("pip<25.3", "wheel", "OctoPrint")
 KNOWN_UNAVAILABLE_PLUGINS = ("firmware_check", "file_check", "pi_support")
 NO_COLOR = os.environ.get("NO_COLOR") == "1"
@@ -202,9 +202,9 @@ def _validate_python(python):
     python_version = tuple(map(int, result.stdout.strip().split(".")))
     if (
         (MIN_PYTHON_VERSION and python_version < MIN_PYTHON_VERSION) or 
-        (MAX_PYTHON_VERSION and python_version > MAX_PYTHON_VERSION)
+        (MAX_PYTHON_VERSION and python_version >= MAX_PYTHON_VERSION)
     ):
-        raise RuntimeError(f"Python at {python} has version {str(python_version)} which is unsupported")
+        raise RuntimeError(f"Python at {python} has version {str(python_version)} which is currently unsupported by OctoPrint")
 
     _print(f"Python at {python} has version {str(python_version)}")
     return python_version
